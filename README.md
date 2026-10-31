@@ -53,4 +53,6 @@ npx tsc --noEmit && npx expo lint
 
 ## Atenção
 
-Desinstalar o app ou limpar os dados apaga tudo. Não há backup.
+Desinstalar o app ou limpar os dados apaga tudo. Use **Ajustes › Backup** para exportar um
+arquivo `.docbolso` criptografado (`src/lib/backup.ts`). Ele abre com o código de recuperação
+mostrado na mesma tela.

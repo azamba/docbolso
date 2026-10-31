@@ -67,6 +67,7 @@ export default function RootLayout() {
                 <Stack.Screen name="form" options={{ title: 'Novo item' }} />
                 <Stack.Screen name="item/[id]" options={{ title: '' }} />
                 <Stack.Screen name="settings" options={{ title: 'Ajustes' }} />
+                <Stack.Screen name="backup" options={{ title: 'Backup' }} />
                 <Stack.Screen
                   name="viewer"
                   options={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: '#000' } }}

@@ -27,12 +27,16 @@ export interface Settings {
   blockScreenshots: boolean;
   /** How long the app may stay in the background before it locks again. */
   lockGraceMs: number;
+  /** When a backup was last exported. */
+  lastBackupAt?: number;
 }
 
 export interface VaultData {
   version: 1;
   items: Item[];
   settings: Settings;
+  /** Recovery code that encrypts this vault's backups. Created on first use. */
+  backupCode?: string;
 }
 
 export const KIND_LABEL: Record<ItemKind, string> = {

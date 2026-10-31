@@ -25,6 +25,7 @@ export default function Settings() {
   const { lockNow } = useLock();
   const block = data?.settings.blockScreenshots ?? true;
   const grace = data?.settings.lockGraceMs ?? 30_000;
+  const lastBackup = data?.settings.lastBackupAt;
 
   return (
     <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
@@ -63,6 +64,22 @@ export default function Settings() {
       </View>
 
       <Pressable
+        onPress={() => router.push('/backup')}
+        style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}
+        accessibilityRole="button"
+      >
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.title, { color: t.text }]}>Backup</Text>
+          <Text style={{ color: lastBackup ? t.muted : t.danger, marginTop: 2 }}>
+            {lastBackup
+              ? `Último backup em ${new Date(lastBackup).toLocaleDateString('pt-BR')}`
+              : 'Nenhum backup feito ainda'}
+          </Text>
+        </View>
+        <Text style={{ color: t.muted, fontSize: 20 }}>›</Text>
+      </Pressable>
+
+      <Pressable
         onPress={() => {
           router.dismissAll();
           lockNow();
@@ -80,8 +97,8 @@ export default function Settings() {
           segurança do Android.{'\n'}
           • O app tranca {graceText(grace)}.{'\n'}
           • Textos copiados são apagados da área de transferência depois de 1 minuto.{'\n'}
-          • Atenção: se você desinstalar o app ou limpar os dados dele, tudo é apagado. Não há
-          backup.
+          • Se você desinstalar o app ou limpar os dados dele, tudo é apagado. Faça backups de
+          vez em quando e guarde o código de recuperação.
         </Text>
       </View>
     </ScrollView>

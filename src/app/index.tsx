@@ -123,7 +123,7 @@ export default function Home() {
               ]}
             >
               {item.kind === 'doc' && item.images[0] ? (
-                <EncryptedImage id={item.images[0].id} style={styles.thumb} />
+                <EncryptedImage id={item.images[0].id} style={styles.thumb} thumbnail />
               ) : (
                 <View style={[styles.thumb, styles.iconBox, { backgroundColor: t.bg }]}>
                   <Text style={{ fontSize: 24 }}>{KIND_ICON[item.kind]}</Text>

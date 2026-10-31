@@ -1,9 +1,10 @@
 import { randomUUID } from 'expo-crypto';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
+import { clearExports, generateBackupCode, openBackup, writeBackup } from './backup';
 import { useLock } from './lock';
 import type { Item, Settings, VaultData } from './types';
-import { deleteImage, readVault, resetVault, writeVault } from './vault';
+import { deleteImage, hasImage, readVault, resetVault, writeImageBytes, writeVault } from './vault';
 
 export type ItemDraft = Omit<Item, 'id' | 'createdAt' | 'updatedAt'>;
 
@@ -17,6 +18,12 @@ interface VaultContextValue {
   eraseAll: () => Promise<void>;
   /** Tries to read the vault again after an error. */
   reload: () => Promise<void>;
+  /** The recovery code for backups, created on first call. */
+  ensureBackupCode: () => Promise<string>;
+  /** Writes an encrypted backup file and returns its uri. */
+  exportBackup: () => Promise<string>;
+  /** Merges a backup into the vault; returns how many items were added or updated. */
+  restoreBackup: (uri: string, code: string) => Promise<number>;
 }
 
 const VaultContext = createContext<VaultContextValue | null>(null);
@@ -40,6 +47,10 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         .catch((e: Error) => setError(e.message)),
     [],
   );
+
+  useEffect(() => {
+    clearExports();
+  }, []);
 
   useEffect(() => {
     if (everUnlocked && !latest.current) load();
@@ -102,8 +113,73 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     await load();
   }, [load]);
 
+  const ensureBackupCode = useCallback(async () => {
+    let code = latest.current?.backupCode;
+    if (code) return code;
+    await commit((current) => {
+      code = current.backupCode ?? generateBackupCode();
+      return current.backupCode ? current : { ...current, backupCode: code };
+    });
+    return code!;
+  }, [commit]);
+
+  const exportBackup = useCallback(async () => {
+    const code = await ensureBackupCode();
+    // Snapshot after pending writes, so the backup matches what is saved.
+    await queue.current;
+    const file = await writeBackup(latest.current!.items, code);
+    return file.uri;
+  }, [ensureBackupCode]);
+
+  const restoreBackup = useCallback(
+    async (uri: string, code: string) => {
+      const backup = await openBackup(uri, code);
+      const current = latest.current!;
+      const localById = new Map(current.items.map((i) => [i.id, i]));
+      // Same id on both sides: keep whichever was edited last.
+      const incoming = backup.items.filter((item) => {
+        const local = localById.get(item.id);
+        return !local || item.updatedAt > local.updatedAt;
+      });
+      const wanted = new Set(incoming.flatMap((item) => item.images.map((img) => img.id)));
+
+      // Photos first: if this stops halfway, the index is untouched and the
+      // extra photos are dropped as orphans on the next launch.
+      await backup.readImages(async (id, bytes) => {
+        if (wanted.has(id) && !hasImage(id)) await writeImageBytes(id, bytes);
+      });
+
+      let replacedImages: string[] = [];
+      await commit((now) => {
+        const byId = new Map(now.items.map((i) => [i.id, i]));
+        const replaced = incoming.flatMap((item) => byId.get(item.id)?.images ?? []);
+        for (const item of incoming) byId.set(item.id, item);
+        const kept = new Set([...byId.values()].flatMap((item) => item.images.map((img) => img.id)));
+        replacedImages = replaced.map((img) => img.id).filter((id) => !kept.has(id));
+        // Adopt the backup's code on a fresh install, so later backups open with the same code.
+        return { ...now, items: [...byId.values()], backupCode: now.backupCode ?? code };
+      });
+      replacedImages.forEach(deleteImage);
+      return incoming.length;
+    },
+    [commit],
+  );
+
   return (
-    <VaultContext.Provider value={{ data, error, saveItem, deleteItem, updateSettings, eraseAll, reload: load }}>
+    <VaultContext.Provider
+      value={{
+        data,
+        error,
+        saveItem,
+        deleteItem,
+        updateSettings,
+        eraseAll,
+        reload: load,
+        ensureBackupCode,
+        exportBackup,
+        restoreBackup,
+      }}
+    >
       {children}
     </VaultContext.Provider>
   );

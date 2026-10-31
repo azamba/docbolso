@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, type ImageStyle, type StyleProp, Text, View } from 'react-native';
 
-import { loadImage } from '../lib/vault';
+import { loadImage, loadThumbnail } from '../lib/vault';
 
 interface Props {
   id: string;
   style?: StyleProp<ImageStyle>;
   resizeMode?: 'cover' | 'contain';
+  /** Load the small version (for lists), which is much faster to decrypt. */
+  thumbnail?: boolean;
 }
 
-export function EncryptedImage({ id, style, resizeMode = 'cover' }: Props) {
+export function EncryptedImage({ id, style, resizeMode = 'cover', thumbnail = false }: Props) {
   // Tagged with the id it belongs to, so a changed id shows the spinner again.
   const [loaded, setLoaded] = useState<{ id: string; uri: string | null } | null>(null);
   const uri = loaded?.id === id ? loaded.uri : null;
@@ -17,13 +19,13 @@ export function EncryptedImage({ id, style, resizeMode = 'cover' }: Props) {
 
   useEffect(() => {
     let alive = true;
-    loadImage(id)
+    (thumbnail ? loadThumbnail : loadImage)(id)
       .then((u) => alive && setLoaded({ id, uri: u }))
       .catch(() => alive && setLoaded({ id, uri: null }));
     return () => {
       alive = false;
     };
-  }, [id]);
+  }, [id, thumbnail]);
 
   if (!uri) {
     return (
