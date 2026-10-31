@@ -4,6 +4,7 @@ import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { LockOverlay } from '../components/LockOverlay';
@@ -66,37 +67,39 @@ function Screens({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
   const t = useTheme();
   return (
-    <SafeAreaProvider>
-      <LockProvider>
-        <VaultProvider>
-          <ScreenshotGuard />
-          <LockGraceSync />
-          <ReminderTapHandler />
-          <View style={{ flex: 1, backgroundColor: t.bg }}>
-            <Screens>
-              <Stack
-                screenOptions={{
-                  headerStyle: { backgroundColor: t.card },
-                  headerTintColor: t.text,
-                  contentStyle: { backgroundColor: t.bg },
-                }}
-              >
-                <Stack.Screen name="index" options={{ title: 'DocBolso' }} />
-                <Stack.Screen name="form" options={{ title: 'Novo item' }} />
-                <Stack.Screen name="item/[id]" options={{ title: '' }} />
-                <Stack.Screen name="settings" options={{ title: 'Ajustes' }} />
-                <Stack.Screen name="backup" options={{ title: 'Backup' }} />
-                <Stack.Screen
-                  name="viewer"
-                  options={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: '#000' } }}
-                />
-              </Stack>
-            </Screens>
-            <LockOverlay />
-          </View>
-          <StatusBar style="auto" />
-        </VaultProvider>
-      </LockProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <LockProvider>
+          <VaultProvider>
+            <ScreenshotGuard />
+            <LockGraceSync />
+            <ReminderTapHandler />
+            <View style={{ flex: 1, backgroundColor: t.bg }}>
+              <Screens>
+                <Stack
+                  screenOptions={{
+                    headerStyle: { backgroundColor: t.card },
+                    headerTintColor: t.text,
+                    contentStyle: { backgroundColor: t.bg },
+                  }}
+                >
+                  <Stack.Screen name="index" options={{ title: 'DocBolso' }} />
+                  <Stack.Screen name="form" options={{ title: 'Novo item' }} />
+                  <Stack.Screen name="item/[id]" options={{ title: '' }} />
+                  <Stack.Screen name="settings" options={{ title: 'Ajustes' }} />
+                  <Stack.Screen name="backup" options={{ title: 'Backup' }} />
+                  <Stack.Screen
+                    name="viewer"
+                    options={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: '#000' } }}
+                  />
+                </Stack>
+              </Screens>
+              <LockOverlay />
+            </View>
+            <StatusBar style="auto" />
+          </VaultProvider>
+        </LockProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

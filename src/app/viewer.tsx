@@ -1,9 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { EncryptedImage } from '../components/EncryptedImage';
+import { ZoomableImage } from '../components/ZoomableImage';
 import { useMaxBrightness } from '../lib/brightness';
 import { useItem } from '../lib/store';
 
@@ -15,6 +15,9 @@ export default function Viewer() {
   const insets = useSafeAreaInsets();
   const initial = Number(index ?? 0);
   const [page, setPage] = useState(initial);
+  const [zoomed, setZoomed] = useState(false);
+  const [rotated, setRotated] = useState(false);
+  const close = useCallback(() => router.back(), []);
 
   useMaxBrightness();
 
@@ -26,15 +29,22 @@ export default function Viewer() {
         data={images}
         horizontal
         pagingEnabled
+        scrollEnabled={!zoomed}
         initialScrollIndex={Math.min(initial, Math.max(images.length - 1, 0))}
         getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
         keyExtractor={(img) => img.id}
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / width))}
+        extraData={rotated}
         renderItem={({ item: img }) => (
-          <Pressable onPress={() => router.back()}>
-            <EncryptedImage id={img.id} resizeMode="contain" style={{ width, height }} />
-          </Pressable>
+          <ZoomableImage
+            id={img.id}
+            width={width}
+            height={height}
+            rotated={rotated}
+            onZoomChange={setZoomed}
+            onSingleTap={close}
+          />
         )}
       />
       <View style={[styles.top, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
@@ -52,6 +62,15 @@ export default function Viewer() {
             {page + 1} / {images.length}
           </Text>
         )}
+        <Pressable
+          onPress={() => setRotated((r) => !r)}
+          hitSlop={12}
+          style={styles.close}
+          accessibilityRole="button"
+          accessibilityLabel={rotated ? 'Desfazer giro' : 'Girar foto'}
+        >
+          <Text style={styles.closeText}>⟳</Text>
+        </Pressable>
       </View>
     </View>
   );
