@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,7 +19,7 @@ import { useLock } from '../lib/lock';
 import { useItem, useVault } from '../lib/store';
 import { type Theme, useTheme } from '../lib/theme';
 import { KIND_LABEL, type ImageRef, type ItemKind, type WifiSecurity } from '../lib/types';
-import { deleteImage, importImage } from '../lib/vault';
+import { clearPickerCache, deleteImage, importImage } from '../lib/vault';
 
 /** A photo already in the vault, or one just picked that is not encrypted yet. */
 type Photo = { saved: ImageRef } | { pending: ImagePicker.ImagePickerAsset };
@@ -44,6 +44,10 @@ export default function Form() {
     () => existing?.images.map((saved) => ({ saved })) ?? [],
   );
   const [saving, setSaving] = useState(false);
+
+  // Picked photos sit unencrypted in the picker cache until saved; never leave
+  // them behind, whether the form was saved or abandoned.
+  useEffect(() => clearPickerCache, []);
 
   const pick = async (source: 'camera' | 'library') => {
     const result = await withoutLocking(async () => {
@@ -73,12 +77,17 @@ export default function Form() {
       return;
     }
     setSaving(true);
+    const imported: ImageRef[] = [];
     try {
       const images: ImageRef[] = [];
       for (const p of photos) {
-        images.push(
-          'saved' in p ? p.saved : await importImage(p.pending.uri, p.pending.width, p.pending.height),
-        );
+        if ('saved' in p) {
+          images.push(p.saved);
+        } else {
+          const ref = await importImage(p.pending.uri, p.pending.width, p.pending.height);
+          imported.push(ref);
+          images.push(ref);
+        }
       }
       const saved = await saveItem(
         {
@@ -96,6 +105,13 @@ export default function Form() {
       if (existing) router.back();
       else router.replace({ pathname: '/item/[id]', params: { id: saved.id } });
     } catch (e) {
+      // importImage deleted the picked files, so swap the photos that were
+      // already encrypted into the form; a retry reuses them, and if the form
+      // is abandoned the vault drops them as orphans on the next launch.
+      let n = 0;
+      setPhotos((ps) =>
+        ps.map((p) => ('pending' in p && n < imported.length ? { saved: imported[n++] } : p)),
+      );
       Alert.alert('Erro ao salvar', (e as Error).message);
       setSaving(false);
     }
