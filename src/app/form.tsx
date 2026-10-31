@@ -15,7 +15,9 @@ import {
 } from 'react-native';
 
 import { EncryptedImage } from '../components/EncryptedImage';
+import { formatBrDate, maskBrDate, parseBrDate } from '../lib/dates';
 import { useLock } from '../lib/lock';
+import { requestReminderPermission } from '../lib/reminders';
 import { useItem, useVault } from '../lib/store';
 import { type Theme, useTheme } from '../lib/theme';
 import { KIND_LABEL, type ImageRef, type ItemKind, type WifiSecurity } from '../lib/types';
@@ -32,11 +34,13 @@ export default function Form() {
   const params = useLocalSearchParams<{ kind?: ItemKind; id?: string }>();
   const existing = useItem(params.id);
   const kind: ItemKind = existing?.kind ?? params.kind ?? 'doc';
-  const { saveItem } = useVault();
+  const { saveItem, refreshReminders } = useVault();
   const { withoutLocking } = useLock();
 
   const [title, setTitle] = useState(existing?.title ?? '');
   const [note, setNote] = useState(existing?.note ?? '');
+  const initialExpiry = existing?.expiresOn ? formatBrDate(existing.expiresOn) : '';
+  const [expiry, setExpiry] = useState(initialExpiry);
   const [ssid, setSsid] = useState(existing?.ssid ?? '');
   const [password, setPassword] = useState(existing?.password ?? '');
   const [security, setSecurity] = useState<WifiSecurity>(existing?.security ?? 'WPA');
@@ -50,6 +54,7 @@ export default function Form() {
   const dirty =
     title !== (existing?.title ?? '') ||
     note !== (existing?.note ?? '') ||
+    expiry !== initialExpiry ||
     ssid !== (existing?.ssid ?? '') ||
     password !== (existing?.password ?? '') ||
     security !== (existing?.security ?? 'WPA') ||
@@ -102,6 +107,11 @@ export default function Form() {
       Alert.alert('Falta a rede', 'Informe o nome da rede Wi-Fi.');
       return;
     }
+    const expiresOn = kind === 'doc' && expiry ? parseBrDate(expiry) : null;
+    if (kind === 'doc' && expiry && !expiresOn) {
+      Alert.alert('Validade inválida', 'Use o formato DD/MM/AAAA, por exemplo 12/03/2030.');
+      return;
+    }
     setSaving(true);
     const imported: ImageRef[] = [];
     try {
@@ -121,10 +131,18 @@ export default function Form() {
           title: finalTitle,
           note: note.trim(),
           images,
+          expiresOn: expiresOn ?? undefined,
           ...(kind === 'wifi' ? { ssid: ssid.trim(), password, security } : {}),
         },
         existing?.id,
       );
+      // Ask for notifications the first time a document gets an expiry date.
+      // withoutLocking: on Android the prompt can briefly background the app.
+      if (expiresOn && expiresOn !== existing?.expiresOn) {
+        withoutLocking(requestReminderPermission)
+          .then((ok) => (ok ? refreshReminders() : undefined))
+          .catch(() => {});
+      }
       // Only drop removed photos once the new index is safely written.
       const kept = new Set(images.map((i) => i.id));
       existing?.images.filter((i) => !kept.has(i.id)).forEach((i) => deleteImage(i.id));
@@ -249,6 +267,22 @@ export default function Form() {
           </>
         )}
 
+        {kind === 'doc' && (
+          <>
+            <Text style={s.label}>Validade</Text>
+            <TextInput
+              value={expiry}
+              onChangeText={(v) => setExpiry(maskBrDate(v))}
+              placeholder="DD/MM/AAAA (opcional)"
+              placeholderTextColor={t.muted}
+              keyboardType="number-pad"
+              maxLength={10}
+              style={s.input}
+            />
+            <Text style={s.help}>Você recebe um aviso 30 dias antes e no dia do vencimento.</Text>
+          </>
+        )}
+
         <Text style={s.label}>{kind === 'note' ? 'Conteúdo' : 'Observações'}</Text>
         <TextInput
           value={note}
@@ -281,6 +315,7 @@ const makeStyles = (t: Theme) =>
     photoBox: { width: '47%' },
     photo: { width: '100%', aspectRatio: 1.58, borderRadius: 8, backgroundColor: t.card },
     photoLabel: { color: t.muted, fontSize: 13, marginTop: 4 },
+    help: { color: t.muted, fontSize: 13, marginTop: 6 },
     remove: {
       position: 'absolute',
       top: 6,

@@ -18,6 +18,8 @@ export interface Item {
   images: ImageRef[];
   /** Free text: document number, note body, etc. */
   note: string;
+  /** Expiry date as "YYYY-MM-DD". Only used by 'doc'. */
+  expiresOn?: string;
   ssid?: string;
   password?: string;
   security?: WifiSecurity;

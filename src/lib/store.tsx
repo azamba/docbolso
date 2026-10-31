@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 
 import { clearExports, generateBackupCode, openBackup, writeBackup } from './backup';
 import { useLock } from './lock';
+import { syncReminders } from './reminders';
 import type { Item, Settings, VaultData } from './types';
 import { deleteImage, hasImage, readVault, resetVault, writeImageBytes, writeVault } from './vault';
 
@@ -18,6 +19,8 @@ interface VaultContextValue {
   eraseAll: () => Promise<void>;
   /** Tries to read the vault again after an error. */
   reload: () => Promise<void>;
+  /** Reschedules expiry reminders (after notification permission is granted). */
+  refreshReminders: () => Promise<void>;
   /** The recovery code for backups, created on first call. */
   ensureBackupCode: () => Promise<string>;
   /** Writes an encrypted backup file and returns its uri. */
@@ -43,6 +46,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
           latest.current = loaded;
           setError(null);
           setData(loaded);
+          syncReminders(loaded.items).catch(() => {});
         })
         .catch((e: Error) => setError(e.message)),
     [],
@@ -59,10 +63,12 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const commit = useCallback((update: (current: VaultData) => VaultData) => {
     const run = queue.current.then(async () => {
       if (!latest.current) throw new Error('Cofre ainda não carregado');
-      const next = update(latest.current);
+      const prev = latest.current;
+      const next = update(prev);
       await writeVault(next);
       latest.current = next;
       setData(next);
+      if (next.items !== prev.items) syncReminders(next.items).catch(() => {});
     });
     queue.current = run.catch(() => {});
     return run;
@@ -112,6 +118,11 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     await resetVault();
     await load();
   }, [load]);
+
+  const refreshReminders = useCallback(
+    () => (latest.current ? syncReminders(latest.current.items) : Promise.resolve()),
+    [],
+  );
 
   const ensureBackupCode = useCallback(async () => {
     let code = latest.current?.backupCode;
@@ -175,6 +186,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         updateSettings,
         eraseAll,
         reload: load,
+        refreshReminders,
         ensureBackupCode,
         exportBackup,
         restoreBackup,

@@ -1,5 +1,6 @@
 import * as ScreenCapture from 'expo-screen-capture';
-import { Stack } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { View } from 'react-native';
@@ -18,6 +19,22 @@ function ScreenshotGuard() {
     if (block) ScreenCapture.preventScreenCaptureAsync('app');
     else ScreenCapture.allowScreenCaptureAsync('app');
   }, [block]);
+  return null;
+}
+
+/** Opens the document when the user taps its expiry reminder (shown once the app is unlocked). */
+function ReminderTapHandler() {
+  const response = Notifications.useLastNotificationResponse();
+  const { data } = useVault();
+  const itemId = response?.notification.request.content.data?.itemId;
+  const ready = !!data;
+  useEffect(() => {
+    if (!ready || typeof itemId !== 'string' || response?.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) {
+      return;
+    }
+    router.push({ pathname: '/item/[id]', params: { id: itemId } });
+    Notifications.clearLastNotificationResponse();
+  }, [ready, itemId, response]);
   return null;
 }
 
@@ -54,6 +71,7 @@ export default function RootLayout() {
         <VaultProvider>
           <ScreenshotGuard />
           <LockGraceSync />
+          <ReminderTapHandler />
           <View style={{ flex: 1, backgroundColor: t.bg }}>
             <Screens>
               <Stack

@@ -14,6 +14,7 @@ import { EncryptedImage } from '../../components/EncryptedImage';
 import { QrCode, wifiPayload } from '../../components/QrCode';
 import { useMaxBrightness } from '../../lib/brightness';
 import { copyPrivate } from '../../lib/clipboard';
+import { expiryStatus, expiryText, formatBrDate } from '../../lib/dates';
 import { useItem, useVault } from '../../lib/store';
 import { type Theme, useTheme } from '../../lib/theme';
 
@@ -128,6 +129,23 @@ export default function ItemScreen() {
         <Text style={{ color: t.muted, textAlign: 'center', fontSize: 13 }}>
           Toque na foto para ver em tela cheia
         </Text>
+      )}
+
+      {item.kind === 'doc' && item.expiresOn && (
+        <View style={[styles.copyRow, { backgroundColor: t.card, borderColor: t.border }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: t.muted, fontSize: 13 }}>Validade</Text>
+            <Text style={{ color: t.text, fontSize: 17, marginTop: 2 }}>{formatBrDate(item.expiresOn)}</Text>
+          </View>
+          <Text
+            style={{
+              color: expiryStatus(item.expiresOn) === 'ok' ? t.muted : t.danger,
+              fontWeight: expiryStatus(item.expiresOn) === 'ok' ? '400' : '600',
+            }}
+          >
+            {expiryText(item.expiresOn)}
+          </Text>
+        </View>
       )}
 
       {item.kind === 'wifi' && (

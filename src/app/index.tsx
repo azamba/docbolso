@@ -4,6 +4,7 @@ import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, TextIn
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EncryptedImage } from '../components/EncryptedImage';
+import { expiryStatus, expiryText } from '../lib/dates';
 import { useLock } from '../lib/lock';
 import { useVault } from '../lib/store';
 import { useTheme } from '../lib/theme';
@@ -136,6 +137,11 @@ export default function Home() {
                 <Text style={{ color: t.muted }} numberOfLines={1}>
                   {subtitle(item)}
                 </Text>
+                {item.expiresOn && expiryStatus(item.expiresOn) !== 'ok' && (
+                  <Text style={{ color: t.danger, fontWeight: '600', fontSize: 13, marginTop: 2 }}>
+                    {expiryText(item.expiresOn)}
+                  </Text>
+                )}
               </View>
             </Pressable>
           )}

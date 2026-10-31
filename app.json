@@ -50,7 +50,13 @@
           "microphonePermission": false
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-notifications",
+        {
+          "enableRemoteNotifications": false
+        }
+      ]
     ],
     "scheme": "docbolso",
     "experiments": {
