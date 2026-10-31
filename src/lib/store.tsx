@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 
 import { useLock } from './lock';
 import type { Item, Settings, VaultData } from './types';
-import { deleteImage, readVault, writeVault } from './vault';
+import { deleteImage, readVault, resetVault, writeVault } from './vault';
 
 export type ItemDraft = Omit<Item, 'id' | 'createdAt' | 'updatedAt'>;
 
@@ -13,6 +13,10 @@ interface VaultContextValue {
   saveItem: (draft: ItemDraft, id?: string) => Promise<Item>;
   deleteItem: (id: string) => Promise<void>;
   updateSettings: (patch: Partial<Settings>) => Promise<void>;
+  /** Erases everything and starts an empty vault (recovery when the data can't be read). */
+  eraseAll: () => Promise<void>;
+  /** Tries to read the vault again after an error. */
+  reload: () => Promise<void>;
 }
 
 const VaultContext = createContext<VaultContextValue | null>(null);
@@ -25,15 +29,21 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const latest = useRef<VaultData | null>(null);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
 
+  const load = useCallback(
+    () =>
+      readVault()
+        .then((loaded) => {
+          latest.current = loaded;
+          setError(null);
+          setData(loaded);
+        })
+        .catch((e: Error) => setError(e.message)),
+    [],
+  );
+
   useEffect(() => {
-    if (!everUnlocked || latest.current) return;
-    readVault()
-      .then((loaded) => {
-        latest.current = loaded;
-        setData(loaded);
-      })
-      .catch((e: Error) => setError(e.message));
-  }, [everUnlocked]);
+    if (everUnlocked && !latest.current) load();
+  }, [everUnlocked, load]);
 
   const commit = useCallback((update: (current: VaultData) => VaultData) => {
     const run = queue.current.then(async () => {
@@ -84,8 +94,16 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     [commit],
   );
 
+  const eraseAll = useCallback(async () => {
+    await queue.current;
+    latest.current = null;
+    setData(null);
+    await resetVault();
+    await load();
+  }, [load]);
+
   return (
-    <VaultContext.Provider value={{ data, error, saveItem, deleteItem, updateSettings }}>
+    <VaultContext.Provider value={{ data, error, saveItem, deleteItem, updateSettings, eraseAll, reload: load }}>
       {children}
     </VaultContext.Provider>
   );

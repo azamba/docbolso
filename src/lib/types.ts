@@ -25,6 +25,8 @@ export interface Item {
 
 export interface Settings {
   blockScreenshots: boolean;
+  /** How long the app may stay in the background before it locks again. */
+  lockGraceMs: number;
 }
 
 export interface VaultData {

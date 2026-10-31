@@ -38,7 +38,13 @@ export default function Viewer() {
         )}
       />
       <View style={[styles.top, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
-        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.close}>
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={12}
+          style={styles.close}
+          accessibilityRole="button"
+          accessibilityLabel="Fechar"
+        >
           <Text style={styles.closeText}>✕</Text>
         </Pressable>
         {images.length > 1 && (

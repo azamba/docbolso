@@ -1,6 +1,6 @@
 import { Link, Stack, router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EncryptedImage } from '../components/EncryptedImage';
@@ -8,6 +8,36 @@ import { useLock } from '../lib/lock';
 import { useVault } from '../lib/store';
 import { useTheme } from '../lib/theme';
 import { KIND_ICON, type Item, type ItemKind } from '../lib/types';
+
+/** Shown when the vault can't be read: retry, or erase everything as a last resort. */
+function VaultError({ message }: { message: string }) {
+  const t = useTheme();
+  const { reload, eraseAll } = useVault();
+  const confirmErase = () =>
+    Alert.alert(
+      'Apagar tudo?',
+      'Todos os documentos, notas e senhas salvos neste app serão apagados para sempre. Use só se tentar de novo não resolver.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Apagar tudo',
+          style: 'destructive',
+          onPress: () => eraseAll().catch((e: Error) => Alert.alert('Erro', e.message)),
+        },
+      ],
+    );
+  return (
+    <View style={{ padding: 24, gap: 12, marginTop: 24 }}>
+      <Text style={[styles.empty, { color: t.danger, marginTop: 0 }]}>{message}</Text>
+      <Pressable onPress={reload} style={[styles.addBtn, { backgroundColor: t.primary, flex: 0 }]}>
+        <Text style={[styles.addText, { color: t.onPrimary }]}>Tentar de novo</Text>
+      </Pressable>
+      <Pressable onPress={confirmErase} style={[styles.addBtn, { borderColor: t.danger, borderWidth: 1, flex: 0 }]}>
+        <Text style={[styles.addText, { color: t.danger }]}>Apagar tudo e recomeçar</Text>
+      </Pressable>
+    </View>
+  );
+}
 
 function subtitle(item: Item) {
   if (item.kind === 'wifi') return item.ssid ?? '';
@@ -41,7 +71,7 @@ export default function Home() {
         options={{
           headerRight: () => (
             <Link href="/settings" asChild>
-              <Pressable hitSlop={12}>
+              <Pressable hitSlop={12} accessibilityRole="button" accessibilityLabel="Ajustes">
                 <Text style={{ fontSize: 22 }}>⚙️</Text>
               </Pressable>
             </Link>
@@ -57,7 +87,7 @@ export default function Home() {
       )}
 
       {error ? (
-        <Text style={[styles.empty, { color: t.danger }]}>{error}</Text>
+        <VaultError message={error} />
       ) : !data ? (
         <ActivityIndicator style={{ marginTop: 48 }} />
       ) : (

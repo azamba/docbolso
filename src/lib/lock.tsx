@@ -2,10 +2,11 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
+import { clearCopied } from './clipboard';
 import { clearImageCache } from './vault';
 
-/** How long the app may stay in the background before it locks again. */
-const LOCK_GRACE_MS = 30_000;
+/** Used until the vault (which stores the user's choice) is loaded. */
+const DEFAULT_GRACE_MS = 30_000;
 
 interface LockContextValue {
   locked: boolean;
@@ -17,6 +18,8 @@ interface LockContextValue {
   lockNow: () => void;
   /** Runs `fn` (e.g. camera, picker) without locking when the app goes to the background. */
   withoutLocking: <T>(fn: () => Promise<T>) => Promise<T>;
+  /** Sets how long the app may stay in the background before locking (0 = right away). */
+  setGraceMs: (ms: number) => void;
 }
 
 const LockContext = createContext<LockContextValue | null>(null);
@@ -28,6 +31,10 @@ export function LockProvider({ children }: { children: React.ReactNode }) {
   const suspended = useRef(0);
   const backgroundAt = useRef<number | null>(null);
   const authenticating = useRef(false);
+  const graceMs = useRef(DEFAULT_GRACE_MS);
+  const setGraceMs = useCallback((ms: number) => {
+    graceMs.current = ms;
+  }, []);
 
   const withoutLocking = useCallback(async <T,>(fn: () => Promise<T>) => {
     suspended.current += 1;
@@ -40,6 +47,7 @@ export function LockProvider({ children }: { children: React.ReactNode }) {
 
   const lockNow = useCallback(() => {
     clearImageCache();
+    clearCopied();
     setLocked(true);
   }, []);
 
@@ -72,7 +80,7 @@ export function LockProvider({ children }: { children: React.ReactNode }) {
       if (state === 'background') {
         backgroundAt.current = suspended.current > 0 ? null : Date.now();
       } else if (state === 'active' && backgroundAt.current !== null) {
-        if (Date.now() - backgroundAt.current > LOCK_GRACE_MS) lockNow();
+        if (Date.now() - backgroundAt.current >= graceMs.current) lockNow();
         backgroundAt.current = null;
       }
     });
@@ -81,7 +89,7 @@ export function LockProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <LockContext.Provider
-      value={{ locked, everUnlocked, deviceUnprotected, unlock, lockNow, withoutLocking }}
+      value={{ locked, everUnlocked, deviceUnprotected, unlock, lockNow, withoutLocking, setGraceMs }}
     >
       {children}
     </LockContext.Provider>

@@ -1,4 +1,3 @@
-import * as Clipboard from 'expo-clipboard';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -14,6 +13,7 @@ import {
 import { EncryptedImage } from '../../components/EncryptedImage';
 import { QrCode, wifiPayload } from '../../components/QrCode';
 import { useMaxBrightness } from '../../lib/brightness';
+import { copyPrivate } from '../../lib/clipboard';
 import { useItem, useVault } from '../../lib/store';
 import { type Theme, useTheme } from '../../lib/theme';
 
@@ -21,7 +21,7 @@ function CopyRow({ label, value, secret, t }: { label: string; value: string; se
   const [shown, setShown] = useState(!secret);
   const [copied, setCopied] = useState(false);
   const copy = async () => {
-    await Clipboard.setStringAsync(value);
+    await copyPrivate(value);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
@@ -34,11 +34,23 @@ function CopyRow({ label, value, secret, t }: { label: string; value: string; se
         </Text>
       </View>
       {secret && (
-        <Pressable onPress={() => setShown((v) => !v)} hitSlop={8} style={styles.copyBtn}>
+        <Pressable
+          onPress={() => setShown((v) => !v)}
+          hitSlop={8}
+          style={styles.copyBtn}
+          accessibilityRole="button"
+          accessibilityLabel={`${shown ? 'Ocultar' : 'Mostrar'} ${label.toLowerCase()}`}
+        >
           <Text style={{ color: t.primary }}>{shown ? 'Ocultar' : 'Mostrar'}</Text>
         </Pressable>
       )}
-      <Pressable onPress={copy} hitSlop={8} style={styles.copyBtn}>
+      <Pressable
+        onPress={copy}
+        hitSlop={8}
+        style={styles.copyBtn}
+        accessibilityRole="button"
+        accessibilityLabel={`Copiar ${label.toLowerCase()}`}
+      >
         <Text style={{ color: t.primary, fontWeight: '600' }}>{copied ? 'Copiado!' : 'Copiar'}</Text>
       </Pressable>
     </View>
@@ -96,6 +108,8 @@ export default function ItemScreen() {
         item.images.map((img, index) => (
           <Pressable
             key={img.id}
+            accessibilityRole="imagebutton"
+            accessibilityLabel={`Foto ${index + 1} de ${item.title}, abrir em tela cheia`}
             onPress={() => router.push({ pathname: '/viewer', params: { id: item.id, index: String(index) } })}
           >
             <EncryptedImage

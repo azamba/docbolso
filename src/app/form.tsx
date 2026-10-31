@@ -1,5 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useLocalSearchParams, usePreventRemove } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -44,6 +44,32 @@ export default function Form() {
     () => existing?.images.map((saved) => ({ saved })) ?? [],
   );
   const [saving, setSaving] = useState(false);
+  const [discarded, setDiscarded] = useState(false);
+
+  const original = existing?.images ?? [];
+  const dirty =
+    title !== (existing?.title ?? '') ||
+    note !== (existing?.note ?? '') ||
+    ssid !== (existing?.ssid ?? '') ||
+    password !== (existing?.password ?? '') ||
+    security !== (existing?.security ?? 'WPA') ||
+    photos.length !== original.length ||
+    photos.some((p, i) => !('saved' in p) || p.saved.id !== original[i].id);
+
+  // While saving, the screen navigates away on purpose.
+  usePreventRemove(dirty && !saving && !discarded, ({ repeat }) =>
+    Alert.alert('Descartar alterações?', 'O que você mudou não foi salvo.', [
+      { text: 'Continuar editando', style: 'cancel' },
+      {
+        text: 'Descartar',
+        style: 'destructive',
+        onPress: () => {
+          setDiscarded(true);
+          repeat();
+        },
+      },
+    ]),
+  );
 
   // Picked photos sit unencrypted in the picker cache until saved; never leave
   // them behind, whether the form was saved or abandoned.
@@ -162,6 +188,8 @@ export default function Form() {
                   <Pressable
                     style={s.remove}
                     hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remover ${PHOTO_LABELS[i]?.toLowerCase() ?? `foto ${i + 1}`}`}
                     onPress={() => setPhotos((ps) => ps.filter((_, j) => j !== i))}
                   >
                     <Text style={{ color: '#fff', fontWeight: '700' }}>✕</Text>

@@ -6,7 +6,7 @@ import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { LockOverlay } from '../components/LockOverlay';
-import { LockProvider } from '../lib/lock';
+import { LockProvider, useLock } from '../lib/lock';
 import { VaultProvider, useVault } from '../lib/store';
 import { useTheme } from '../lib/theme';
 
@@ -21,6 +21,31 @@ function ScreenshotGuard() {
   return null;
 }
 
+/** Hands the saved lock timeout to the lock, which lives above the vault. */
+function LockGraceSync() {
+  const { data } = useVault();
+  const { setGraceMs } = useLock();
+  const grace = data?.settings.lockGraceMs;
+  useEffect(() => {
+    if (grace !== undefined) setGraceMs(grace);
+  }, [grace, setGraceMs]);
+  return null;
+}
+
+/** The screens, hidden from screen readers while the lock overlay covers them. */
+function Screens({ children }: { children: React.ReactNode }) {
+  const { locked } = useLock();
+  return (
+    <View
+      style={{ flex: 1 }}
+      importantForAccessibility={locked ? 'no-hide-descendants' : 'auto'}
+      accessibilityElementsHidden={locked}
+    >
+      {children}
+    </View>
+  );
+}
+
 export default function RootLayout() {
   const t = useTheme();
   return (
@@ -28,23 +53,26 @@ export default function RootLayout() {
       <LockProvider>
         <VaultProvider>
           <ScreenshotGuard />
+          <LockGraceSync />
           <View style={{ flex: 1, backgroundColor: t.bg }}>
-            <Stack
-              screenOptions={{
-                headerStyle: { backgroundColor: t.card },
-                headerTintColor: t.text,
-                contentStyle: { backgroundColor: t.bg },
-              }}
-            >
-              <Stack.Screen name="index" options={{ title: 'DocBolso' }} />
-              <Stack.Screen name="form" options={{ title: 'Novo item' }} />
-              <Stack.Screen name="item/[id]" options={{ title: '' }} />
-              <Stack.Screen name="settings" options={{ title: 'Ajustes' }} />
-              <Stack.Screen
-                name="viewer"
-                options={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: '#000' } }}
-              />
-            </Stack>
+            <Screens>
+              <Stack
+                screenOptions={{
+                  headerStyle: { backgroundColor: t.card },
+                  headerTintColor: t.text,
+                  contentStyle: { backgroundColor: t.bg },
+                }}
+              >
+                <Stack.Screen name="index" options={{ title: 'DocBolso' }} />
+                <Stack.Screen name="form" options={{ title: 'Novo item' }} />
+                <Stack.Screen name="item/[id]" options={{ title: '' }} />
+                <Stack.Screen name="settings" options={{ title: 'Ajustes' }} />
+                <Stack.Screen
+                  name="viewer"
+                  options={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: '#000' } }}
+                />
+              </Stack>
+            </Screens>
             <LockOverlay />
           </View>
           <StatusBar style="auto" />

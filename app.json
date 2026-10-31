@@ -20,7 +20,7 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.alexandre.docbolso",
       "allowBackup": false,
-      "permissions": [
+      "blockedPermissions": [
         "android.permission.WRITE_SETTINGS"
       ]
     },

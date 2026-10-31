@@ -37,7 +37,7 @@ const pickerCacheDir = new Directory(Paths.cache, 'ImagePicker');
 const EMPTY: VaultData = {
   version: 1,
   items: [],
-  settings: { blockScreenshots: true },
+  settings: { blockScreenshots: true, lockGraceMs: 30_000 },
 };
 
 let keyPromise: Promise<AESEncryptionKey> | null = null;
@@ -115,6 +115,18 @@ export async function writeVault(data: VaultData): Promise<void> {
   const current = vaultFile(INDEX);
   if (current.exists) await current.move(vaultFile(INDEX_PREV), { overwrite: true });
   await vaultFile(INDEX_TMP).move(vaultFile(INDEX), { overwrite: true });
+}
+
+/**
+ * Erases the whole vault and its key. Only for when the data can no longer be
+ * read (lost key or corrupted index); a fresh empty vault is created on the
+ * next readVault.
+ */
+export async function resetVault(): Promise<void> {
+  imageCache.clear();
+  if (vaultDir.exists) vaultDir.delete();
+  await SecureStore.deleteItemAsync(KEY_NAME);
+  keyPromise = null;
 }
 
 /** Deletes encrypted photos the index no longer references (failed saves, crashes). */
